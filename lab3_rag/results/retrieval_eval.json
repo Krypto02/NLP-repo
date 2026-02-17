@@ -1,0 +1,65 @@
+[
+  {
+    "Method": "dense",
+    "k": 1,
+    "Hit Rate @k": 1.0,
+    "MRR": 1.0,
+    "Precision @k": 1.0
+  },
+  {
+    "Method": "dense",
+    "k": 3,
+    "Hit Rate @k": 1.0,
+    "MRR": 1.0,
+    "Precision @k": 0.9429
+  },
+  {
+    "Method": "dense",
+    "k": 5,
+    "Hit Rate @k": 1.0,
+    "MRR": 1.0,
+    "Precision @k": 0.9029
+  },
+  {
+    "Method": "bm25",
+    "k": 1,
+    "Hit Rate @k": 0.9143,
+    "MRR": 0.9143,
+    "Precision @k": 0.9143
+  },
+  {
+    "Method": "bm25",
+    "k": 3,
+    "Hit Rate @k": 0.9714,
+    "MRR": 0.9429,
+    "Precision @k": 0.581
+  },
+  {
+    "Method": "bm25",
+    "k": 5,
+    "Hit Rate @k": 0.9714,
+    "MRR": 0.9429,
+    "Precision @k": 0.4514
+  },
+  {
+    "Method": "hybrid",
+    "k": 1,
+    "Hit Rate @k": 1.0,
+    "MRR": 1.0,
+    "Precision @k": 1.0
+  },
+  {
+    "Method": "hybrid",
+    "k": 3,
+    "Hit Rate @k": 1.0,
+    "MRR": 0.9857,
+    "Precision @k": 0.8381
+  },
+  {
+    "Method": "hybrid",
+    "k": 5,
+    "Hit Rate @k": 1.0,
+    "MRR": 0.981,
+    "Precision @k": 0.7371
+  }
+]

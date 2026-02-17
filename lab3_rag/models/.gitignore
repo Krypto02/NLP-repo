@@ -1,0 +1,3 @@
+# Model weights — DO NOT commit to Git
+*.gguf
+*.bin

@@ -1,0 +1,287 @@
+{
+  "description": "Hand-annotated evaluation dataset -- 35 questions over 7 thematic documents.",
+  "documents": [
+    {
+      "doc_file": "doc_ml_basics.pdf",
+      "title": "Introduction to Machine Learning",
+      "summary": "A primer covering supervised/unsupervised learning, bias-variance tradeoff, and evaluation metrics."
+    },
+    {
+      "doc_file": "doc_climate.pdf",
+      "title": "Climate Change: Causes and Effects",
+      "summary": "A short report on greenhouse gas emissions, global temperature trends, and mitigation strategies."
+    },
+    {
+      "doc_file": "doc_python.docx",
+      "title": "Python Programming Best Practices",
+      "summary": "A guide covering PEP-8, virtual environments, testing, and type hints."
+    },
+    {
+      "doc_file": "doc_databases.pdf",
+      "title": "Databases and SQL Fundamentals",
+      "summary": "Covers relational databases, SQL queries, ACID properties, normalization, indexing, and NoSQL."
+    },
+    {
+      "doc_file": "doc_cybersecurity.pdf",
+      "title": "Cybersecurity Fundamentals",
+      "summary": "Covers the CIA triad, encryption, common attack vectors, firewalls, MFA, and zero-trust architecture."
+    },
+    {
+      "doc_file": "doc_deep_learning.pdf",
+      "title": "Deep Learning and Neural Networks",
+      "summary": "Covers neural network architectures, backpropagation, CNNs, RNNs, transformers, and regularization."
+    },
+    {
+      "doc_file": "doc_web_dev.pdf",
+      "title": "Web Development Basics",
+      "summary": "Covers HTML, CSS, JavaScript, backend frameworks, HTTP, and web security best practices."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "question": "What is the difference between supervised and unsupervised learning?",
+      "expected_doc": "doc_ml_basics.pdf",
+      "gold_passage_keywords": ["supervised", "labeled data", "unsupervised", "clustering"],
+      "expected_answer_contains": ["labeled", "unlabeled"]
+    },
+    {
+      "id": "q02",
+      "question": "Explain the bias-variance tradeoff.",
+      "expected_doc": "doc_ml_basics.pdf",
+      "gold_passage_keywords": ["bias", "variance", "tradeoff", "overfitting", "underfitting"],
+      "expected_answer_contains": ["bias", "variance"]
+    },
+    {
+      "id": "q03",
+      "question": "What metrics are commonly used to evaluate classification models?",
+      "expected_doc": "doc_ml_basics.pdf",
+      "gold_passage_keywords": ["accuracy", "precision", "recall", "F1"],
+      "expected_answer_contains": ["precision", "recall"]
+    },
+    {
+      "id": "q04",
+      "question": "What is overfitting and how can it be prevented?",
+      "expected_doc": "doc_ml_basics.pdf",
+      "gold_passage_keywords": ["overfitting", "regularization", "cross-validation"],
+      "expected_answer_contains": ["overfitting", "regularization"]
+    },
+    {
+      "id": "q05",
+      "question": "What is a decision tree?",
+      "expected_doc": "doc_ml_basics.pdf",
+      "gold_passage_keywords": ["decision tree", "split", "leaf", "node"],
+      "expected_answer_contains": ["decision", "tree"]
+    },
+    {
+      "id": "q06",
+      "question": "What are the main causes of climate change?",
+      "expected_doc": "doc_climate.pdf",
+      "gold_passage_keywords": ["greenhouse", "CO2", "fossil fuels", "deforestation"],
+      "expected_answer_contains": ["greenhouse", "fossil"]
+    },
+    {
+      "id": "q07",
+      "question": "How much has global temperature risen since pre-industrial times?",
+      "expected_doc": "doc_climate.pdf",
+      "gold_passage_keywords": ["temperature", "1.1", "degrees", "pre-industrial"],
+      "expected_answer_contains": ["1.1", "degree"]
+    },
+    {
+      "id": "q08",
+      "question": "What are some mitigation strategies for climate change?",
+      "expected_doc": "doc_climate.pdf",
+      "gold_passage_keywords": ["renewable", "carbon", "mitigation", "energy"],
+      "expected_answer_contains": ["renewable", "carbon"]
+    },
+    {
+      "id": "q09",
+      "question": "What is the Paris Agreement?",
+      "expected_doc": "doc_climate.pdf",
+      "gold_passage_keywords": ["Paris", "agreement", "2015", "temperature", "limit"],
+      "expected_answer_contains": ["Paris", "agreement"]
+    },
+    {
+      "id": "q10",
+      "question": "What are the effects of rising sea levels?",
+      "expected_doc": "doc_climate.pdf",
+      "gold_passage_keywords": ["sea level", "flooding", "coastal", "ice"],
+      "expected_answer_contains": ["sea level", "flood"]
+    },
+    {
+      "id": "q11",
+      "question": "What is PEP-8?",
+      "expected_doc": "doc_python.docx",
+      "gold_passage_keywords": ["PEP-8", "style", "guide", "Python", "formatting"],
+      "expected_answer_contains": ["PEP-8", "style"]
+    },
+    {
+      "id": "q12",
+      "question": "Why should you use virtual environments in Python?",
+      "expected_doc": "doc_python.docx",
+      "gold_passage_keywords": ["virtual environment", "dependencies", "isolation", "venv"],
+      "expected_answer_contains": ["virtual environment", "dependencies"]
+    },
+    {
+      "id": "q13",
+      "question": "What are type hints in Python and why are they useful?",
+      "expected_doc": "doc_python.docx",
+      "gold_passage_keywords": ["type hints", "annotations", "mypy", "readability"],
+      "expected_answer_contains": ["type hint"]
+    },
+    {
+      "id": "q14",
+      "question": "How do you write unit tests in Python?",
+      "expected_doc": "doc_python.docx",
+      "gold_passage_keywords": ["unittest", "pytest", "assert", "test"],
+      "expected_answer_contains": ["test"]
+    },
+    {
+      "id": "q15",
+      "question": "What is the Global Interpreter Lock (GIL)?",
+      "expected_doc": "doc_python.docx",
+      "gold_passage_keywords": ["GIL", "global interpreter lock", "threading", "CPython"],
+      "expected_answer_contains": ["GIL"]
+    },
+    {
+      "id": "q16",
+      "question": "What are ACID properties in databases?",
+      "expected_doc": "doc_databases.pdf",
+      "gold_passage_keywords": ["ACID", "atomicity", "consistency", "isolation", "durability"],
+      "expected_answer_contains": ["atomicity", "consistency"]
+    },
+    {
+      "id": "q17",
+      "question": "What is database normalization?",
+      "expected_doc": "doc_databases.pdf",
+      "gold_passage_keywords": ["normalization", "1NF", "2NF", "3NF", "redundancy"],
+      "expected_answer_contains": ["normalization", "redundancy"]
+    },
+    {
+      "id": "q18",
+      "question": "What are the different types of SQL JOINs?",
+      "expected_doc": "doc_databases.pdf",
+      "gold_passage_keywords": ["JOIN", "INNER", "LEFT", "RIGHT", "FULL OUTER"],
+      "expected_answer_contains": ["JOIN", "INNER"]
+    },
+    {
+      "id": "q19",
+      "question": "How do indexes improve database query performance?",
+      "expected_doc": "doc_databases.pdf",
+      "gold_passage_keywords": ["index", "B-tree", "query", "performance"],
+      "expected_answer_contains": ["index", "performance"]
+    },
+    {
+      "id": "q20",
+      "question": "What are the main types of NoSQL databases?",
+      "expected_doc": "doc_databases.pdf",
+      "gold_passage_keywords": ["NoSQL", "document", "key-value", "graph", "column"],
+      "expected_answer_contains": ["NoSQL", "document"]
+    },
+    {
+      "id": "q21",
+      "question": "What is the CIA triad in cybersecurity?",
+      "expected_doc": "doc_cybersecurity.pdf",
+      "gold_passage_keywords": ["CIA", "confidentiality", "integrity", "availability"],
+      "expected_answer_contains": ["confidentiality", "integrity", "availability"]
+    },
+    {
+      "id": "q22",
+      "question": "What are common cyber attack vectors?",
+      "expected_doc": "doc_cybersecurity.pdf",
+      "gold_passage_keywords": ["phishing", "malware", "SQL injection", "XSS", "DoS"],
+      "expected_answer_contains": ["phishing", "malware"]
+    },
+    {
+      "id": "q23",
+      "question": "What is multi-factor authentication?",
+      "expected_doc": "doc_cybersecurity.pdf",
+      "gold_passage_keywords": ["MFA", "multi-factor", "password", "biometrics", "token"],
+      "expected_answer_contains": ["multi-factor", "authentication"]
+    },
+    {
+      "id": "q24",
+      "question": "What is zero-trust architecture?",
+      "expected_doc": "doc_cybersecurity.pdf",
+      "gold_passage_keywords": ["zero-trust", "never trust", "verify", "micro-segmentation"],
+      "expected_answer_contains": ["zero-trust", "verify"]
+    },
+    {
+      "id": "q25",
+      "question": "How does encryption protect data confidentiality?",
+      "expected_doc": "doc_cybersecurity.pdf",
+      "gold_passage_keywords": ["encryption", "AES", "RSA", "TLS", "confidentiality"],
+      "expected_answer_contains": ["encryption", "confidentiality"]
+    },
+    {
+      "id": "q26",
+      "question": "What is backpropagation in neural networks?",
+      "expected_doc": "doc_deep_learning.pdf",
+      "gold_passage_keywords": ["backpropagation", "gradient", "chain rule", "loss"],
+      "expected_answer_contains": ["backpropagation", "gradient"]
+    },
+    {
+      "id": "q27",
+      "question": "What are convolutional neural networks used for?",
+      "expected_doc": "doc_deep_learning.pdf",
+      "gold_passage_keywords": ["CNN", "convolutional", "image", "pooling", "ResNet"],
+      "expected_answer_contains": ["convolutional", "image"]
+    },
+    {
+      "id": "q28",
+      "question": "How do transformers use attention mechanisms?",
+      "expected_doc": "doc_deep_learning.pdf",
+      "gold_passage_keywords": ["transformer", "self-attention", "query", "key", "value"],
+      "expected_answer_contains": ["attention", "transformer"]
+    },
+    {
+      "id": "q29",
+      "question": "What are common activation functions in neural networks?",
+      "expected_doc": "doc_deep_learning.pdf",
+      "gold_passage_keywords": ["ReLU", "sigmoid", "tanh", "softmax", "activation"],
+      "expected_answer_contains": ["ReLU", "activation"]
+    },
+    {
+      "id": "q30",
+      "question": "What is transfer learning in deep learning?",
+      "expected_doc": "doc_deep_learning.pdf",
+      "gold_passage_keywords": ["transfer learning", "pre-trained", "fine-tune", "dropout"],
+      "expected_answer_contains": ["transfer learning", "pre-trained"]
+    },
+    {
+      "id": "q31",
+      "question": "What is the DOM in web development?",
+      "expected_doc": "doc_web_dev.pdf",
+      "gold_passage_keywords": ["DOM", "Document Object Model", "JavaScript", "HTML"],
+      "expected_answer_contains": ["DOM", "Document Object Model"]
+    },
+    {
+      "id": "q32",
+      "question": "What is the difference between Flexbox and CSS Grid?",
+      "expected_doc": "doc_web_dev.pdf",
+      "gold_passage_keywords": ["Flexbox", "CSS Grid", "layout", "one-dimensional", "two-dimensional"],
+      "expected_answer_contains": ["Flexbox", "Grid"]
+    },
+    {
+      "id": "q33",
+      "question": "What are common HTTP status codes?",
+      "expected_doc": "doc_web_dev.pdf",
+      "gold_passage_keywords": ["HTTP", "200", "404", "500", "status code"],
+      "expected_answer_contains": ["200", "404"]
+    },
+    {
+      "id": "q34",
+      "question": "What are RESTful APIs?",
+      "expected_doc": "doc_web_dev.pdf",
+      "gold_passage_keywords": ["REST", "API", "GET", "POST", "CRUD"],
+      "expected_answer_contains": ["REST", "API"]
+    },
+    {
+      "id": "q35",
+      "question": "What are web security best practices?",
+      "expected_doc": "doc_web_dev.pdf",
+      "gold_passage_keywords": ["OWASP", "injection", "CORS", "HTTPS", "CSP"],
+      "expected_answer_contains": ["security", "OWASP"]
+    }
+  ]
+}
