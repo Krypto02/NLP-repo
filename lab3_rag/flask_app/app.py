@@ -191,6 +191,18 @@ def delete_document(doc_id):
     return jsonify({"message": f"Document {doc_id} deleted."}), 200
 
 
+@app.route("/retrieve", methods=["POST"])
+def retrieve_chunks():
+    data = request.get_json(silent=True)
+    if not data or "question" not in data:
+        return jsonify({"error": "Missing 'question' field in JSON body."}), 400
+    question = data["question"]
+    top_k = data.get("top_k", TOP_K)
+    method = data.get("method", None)
+    chunks = retrieve(question, top_k=int(top_k), method=method)
+    return jsonify({"chunks": [{"text": c["text"], "filename": c["filename"], "score": c.get("score")} for c in chunks]}), 200
+
+
 @app.route("/query", methods=["POST"])
 def query():
     data = request.get_json(silent=True)

@@ -39,18 +39,26 @@ def generate_answer(query: str, chunks: List[Dict]) -> str:
 
     prompt = _build_prompt(query, chunks)
 
+    # Nombre del modelo (ajusta si es necesario)
+    model_name = "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+    payload = {
+        "model": model_name,
+        "prompt": prompt,
+        "n_predict": 512,
+        "temperature": 0.85,
+        "top_p": 0.95,
+        "repeat_penalty": 1.2,
+        "stop": ["[INST]", "</s>"]
+    }
+    print("[DEBUG] Payload enviado a llama.cpp /completion:", payload)
     try:
         resp = requests.post(
             f"{LLM_URL}/completion",
-            json={
-                "prompt": prompt,
-                "n_predict": 512,
-                "temperature": 0.3,
-                "top_p": 0.9,
-                "stop": ["[INST]", "</s>"],
-            },
+            json=payload,
             timeout=120,
         )
+        print("[DEBUG] Respuesta status:", resp.status_code)
+        print("[DEBUG] Respuesta texto:", resp.text)
         resp.raise_for_status()
         return resp.json().get("content", "").strip()
     except requests.exceptions.ConnectionError:

@@ -1,48 +1,50 @@
-import csv
+
 import os
 import requests
-from io import BytesIO
+from docx import Document
+import tempfile
 
-# Configuración
 API_URL = os.getenv("API_URL", "http://localhost:5000")
-CSV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "training.csv"))
-TYPES = ["shaming", "stereotype", "objectification", "violence"]
+DOCX_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "examples.docx"))
+CHUNK_SIZE = 10  # Número de párrafos por chunk
 
-# Lee el CSV y agrupa los textos por tipo de misoginia
+def split_docx(docx_path, chunk_size):
+    doc = Document(docx_path)
+    paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+    total = len(paragraphs)
+    chunks = [paragraphs[i:i+chunk_size] for i in range(0, total, chunk_size)]
+    return chunks
 
-def load_and_group_by_type(csv_path):
-    groups = {t: [] for t in TYPES}
-    with open(csv_path, encoding="utf-8") as f:
-        reader = csv.DictReader(f, delimiter="\t")
-        for row in reader:
-            for t in TYPES:
-                if row.get(t, "0") == "1":
-                    text = row.get("Text Transcription") or row.get("text") or ""
-                    if text.strip():
-                        groups[t].append(text.strip())
-    return groups
+def create_temp_docx(paragraphs, idx):
+    temp_doc = Document()
+    for p in paragraphs:
+        temp_doc.add_paragraph(p)
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'_part{idx+1}.docx')
+    temp_doc.save(temp_file.name)
+    temp_file.close()
+    return temp_file.name
 
-def upload_document(texts, doc_name):
-    # Guarda los textos en un archivo temporal en memoria
-    content = "\n\n".join(texts)
-    file_bytes = content.encode("utf-8")
-    files = {"file": (f"{doc_name}.txt", BytesIO(file_bytes))}
-    resp = requests.post(f"{API_URL}/documents", files=files, timeout=120)
-    resp.raise_for_status()
-    return resp.json()
+def upload_docx_chunk(docx_path, idx):
+    with open(docx_path, "rb") as f:
+        files = {"file": (os.path.basename(docx_path), f, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+        try:
+            resp = requests.post(f"{API_URL}/documents", files=files, timeout=60)
+            resp.raise_for_status()
+            print(f"[OK] Chunk {idx+1} subido. ID: {resp.json().get('document_id')}")
+        except Exception as e:
+            print(f"[ERROR] Fallo al subir chunk {idx+1}: {e}")
 
 def main():
-    groups = load_and_group_by_type(CSV_PATH)
-    for t, texts in groups.items():
-        if not texts:
-            print(f"No texts found for type: {t}")
-            continue
-        print(f"Uploading {len(texts)} texts for type: {t}")
-        try:
-            info = upload_document(texts, f"misogyny_{t}")
-            print(f"  Uploaded as document: {info['document_id']} ({info['filename']})")
-        except Exception as e:
-            print(f"  Error uploading {t}: {e}")
+    if not os.path.exists(DOCX_PATH):
+        print(f"Error: No se encuentra el archivo en {DOCX_PATH}")
+        return
+    chunks = split_docx(DOCX_PATH, CHUNK_SIZE)
+    print(f"Total de chunks a subir: {len(chunks)}")
+    for idx, chunk in enumerate(chunks):
+        temp_docx = create_temp_docx(chunk, idx)
+        upload_docx_chunk(temp_docx, idx)
+        os.remove(temp_docx)
 
 if __name__ == "__main__":
     main()
+
