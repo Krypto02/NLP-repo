@@ -5,6 +5,7 @@ Implements three strategies:
 2. Recursive    -- split by paragraph -> sentence -> fixed size
 3. Semantic     -- split where embedding similarity drops below a threshold
 """
+
 from __future__ import annotations
 
 import re
@@ -76,7 +77,7 @@ def semantic_chunk(
 
     Requires a SentenceTransformer model instance (passed to avoid repeated loading).
     """
-    import numpy as np
+    import numpy as np  # pylint: disable=import-outside-toplevel
 
     sentences = _SENT_RE.split(text)
     sentences = [s.strip() for s in sentences if s.strip()]
@@ -89,9 +90,7 @@ def semantic_chunk(
     current_chunk = [sentences[0]]
     for i in range(1, len(sentences)):
         a, b = embeddings[i - 1], embeddings[i]
-        cos_sim = float(
-            np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9)
-        )
+        cos_sim = float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
         if cos_sim < threshold:
             chunks.append(" ".join(current_chunk))
             current_chunk = [sentences[i]]

@@ -3,6 +3,7 @@
 The LLM iteratively decides whether to SEARCH, SUMMARIZE, or produce a FINAL ANSWER.
 Each loop iteration calls a tool and feeds the observation back to the LLM.
 """
+
 from __future__ import annotations
 
 import re
@@ -90,8 +91,7 @@ def agent_query(question: str, top_k: int = TOP_K) -> Dict:
 
             if hits:
                 obs_text = "\n".join(
-                    f"[{i}] ({h['filename']}) {h['text'][:300]}"
-                    for i, h in enumerate(hits, 1)
+                    f"[{i}] ({h['filename']}) {h['text'][:300]}" for i, h in enumerate(hits, 1)
                 )
             else:
                 obs_text = "No results found."
@@ -100,7 +100,8 @@ def agent_query(question: str, top_k: int = TOP_K) -> Dict:
             prompt += f"\n{llm_output}\nObservation: {obs_text}\n"
 
     return {
-        "answer": "(Agent reached max iterations) " + (all_observations[-1] if all_observations else "No answer generated."),
+        "answer": "(Agent reached max iterations) "
+        + (all_observations[-1] if all_observations else "No answer generated."),
         "sources": all_chunks,
         "iterations": MAX_ITERATIONS,
         "mode": "agent",

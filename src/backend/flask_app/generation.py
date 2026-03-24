@@ -1,4 +1,5 @@
 """LLM answer generation via llama.cpp /completion endpoint."""
+
 from __future__ import annotations
 
 from typing import Dict, List
@@ -24,11 +25,7 @@ def _build_prompt(query: str, chunks: List[Dict]) -> str:
         context_parts.append(f"[{i}] (Source: {fname}, score: {score:.3f})\n{chunk['text']}")
     context = "\n\n".join(context_parts)
 
-    prompt = (
-        f"[INST] {SYSTEM_PROMPT}\n\n"
-        f"Context:\n{context}\n\n"
-        f"Question: {query} [/INST]"
-    )
+    prompt = f"[INST] {SYSTEM_PROMPT}\n\n" f"Context:\n{context}\n\n" f"Question: {query} [/INST]"
     return prompt
 
 
@@ -48,7 +45,7 @@ def generate_answer(query: str, chunks: List[Dict]) -> str:
         "temperature": 0.85,
         "top_p": 0.95,
         "repeat_penalty": 1.2,
-        "stop": ["[INST]", "</s>"]
+        "stop": ["[INST]", "</s>"],
     }
     print("[DEBUG] Payload enviado a llama.cpp /completion:", payload)
     try:

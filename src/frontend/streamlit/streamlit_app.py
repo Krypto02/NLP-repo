@@ -1,4 +1,5 @@
 """Streamlit frontend for the RAG Document Q&A System (Bonus +5%)."""
+
 import os
 
 import requests
@@ -37,7 +38,9 @@ with st.sidebar:
             st.info("No documents uploaded yet.")
         for doc in docs:
             col1, col2 = st.columns([4, 1])
-            col1.markdown(f"**{doc['filename']}**  \n{doc['num_chunks']} chunks -- {doc['upload_date'][:10]}")
+            col1.markdown(
+                f"**{doc['filename']}**  \n{doc['num_chunks']} chunks -- {doc['upload_date'][:10]}"
+            )
             if col2.button("Delete", key=doc["id"]):
                 requests.delete(f"{API_URL}/documents/{doc['id']}", timeout=10)
                 st.rerun()

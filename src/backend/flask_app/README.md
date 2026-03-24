@@ -1,13 +1,73 @@
-# RAG Document Q&A System -- Assignment 3
+# Flask API — RAG Orchestration Layer
 
-## Architecture Overview
+REST API that orchestrates the full RAG pipeline: document ingestion, chunking, vector store retrieval, and LLM-based generation.
+
+## Architecture
 
 ```
 +----------+   PDF/DOCX    +-----------+    store     +---------+
-|  Client   | ---------->  |  Flask API | ---------->  |  MinIO  |
-| (curl /   |              |  :5000     |              |  :9000  |
-| Streamlit)|  question    |            |  chunks      |         |
-|  :8501    | ---------->  |  parse --> | ---------->  |---------|
+| Client   | ---------->  |  Flask API | ---------->  |  MinIO  |
+| (curl /  |              |   :5000    |              |  :9000  |
+| Streamlit|  question    |            |  embeddings  |         |
+|  :8501)  | ---------->  |  parse --> | ---------->  +---------+
++----------+              |  chunk     |              |ChromaDB |
+                           |  retrieve  | <----------  |  :8000  |
+                           |  generate  |              +---------+
+                           |            |  prompt+ctx  +---------+
+                           |            | ---------->  | llama   |
+                           |            | <----------  |  :8080  |
+                           +-----------+              +---------+
+```
+
+## Modules
+
+| File | Purpose |
+|------|---------|
+| `app.py` | Flask routes: `/health`, `/documents`, `/query`, `/documents/<id>` |
+| `ingestion.py` | Parse uploaded PDF and DOCX files into plain text |
+| `chunking.py` | Split text into chunks (fixed-size, recursive, semantic) |
+| `retrieval.py` | Embed queries and retrieve top-k chunks from ChromaDB |
+| `generation.py` | Build prompts and call the local LLM (llama.cpp) |
+| `agent.py` | Optional agent loop for multi-turn reasoning |
+| `config.py` | Environment-based configuration (MinIO, ChromaDB, LLM endpoints) |
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Check MinIO, ChromaDB, and LLM connectivity |
+| `POST` | `/documents` | Upload a PDF or DOCX and store chunks in the vector index |
+| `GET` | `/documents` | List all indexed documents |
+| `DELETE` | `/documents/<id>` | Remove a document and its chunks |
+| `POST` | `/query` | Retrieve relevant chunks and generate an answer |
+
+## Quick Start
+
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Upload a document
+curl -X POST http://localhost:5000/documents -F "file=@memes.pdf"
+
+# Query the RAG system
+curl -X POST http://localhost:5000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Generate a meme about gender stereotypes"}'
+```
+
+## Configuration
+
+All settings are controlled via environment variables (see `config.py` and `docker-compose.yml`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MINIO_ENDPOINT` | `minio:9000` | MinIO address |
+| `CHROMA_HOST` | `chromadb` | ChromaDB host |
+| `CHROMA_PORT` | `8000` | ChromaDB port |
+| `LLM_URL` | `http://llama:8080/completion` | llama.cpp endpoint |
+| `MINIO_BUCKET` | `documents` | Storage bucket name |
+
 +----------+              |  chunk     |              |ChromaDB |
                            |  retrieve  | <---------- |  :8000  |
                            |  generate  |              +---------+
@@ -22,8 +82,8 @@
 | MinIO         | `minio/minio:latest`    | 9000  | Raw document storage             |
 | ChromaDB      | `chromadb/chroma:0.6.3` | 8000  | Vector index for chunk retrieval |
 | llama.cpp     | `ghcr.io/ggml-org/llama.cpp:server-cuda` | 8080 | Local quantized LLM (GPU)  |
-| Flask API     | `./flask_app`           | 5000  | REST API orchestration           |
-| Streamlit     | `./frontend`            | 8501  | Web UI (bonus)                   |
+| Flask API     | `./src/backend/flask_app` | 5000  | REST API orchestration           |
+| Streamlit     | `./src/frontend/streamlit`| 8501  | Web UI                           |
 
 ## Quick Start
 
@@ -31,7 +91,7 @@
 
 ```bash
 git clone <repo-url>
-cd lab3_rag
+cd NLP-repo
 ```
 
 ### 2. Download the LLM model weights
@@ -39,7 +99,7 @@ cd lab3_rag
 > **Do NOT commit model weights to Git.** GGUF files are 4-8 GB.
 
 ```bash
-mkdir -p models
+mkdir -p src/models/gguf
 
 # Option A -- Mistral 7B Instruct (recommended, ~4.4 GB)
 wget -O models/mistral-7b-instruct-v0.2.Q4_K_M.gguf \

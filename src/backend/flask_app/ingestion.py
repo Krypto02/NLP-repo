@@ -1,4 +1,5 @@
 """Document parsing -- extract text from PDF and DOCX files."""
+
 import io
 import pdfplumber
 from docx import Document
@@ -14,9 +15,7 @@ def parse_pdf(file_bytes: bytes) -> str:
                 text_parts.append(page_text)
     text = "\n".join(text_parts).strip()
     if not text:
-        raise ValueError(
-            "PDF appears to be scanned / image-only -- no extractable text found."
-        )
+        raise ValueError("PDF appears to be scanned / image-only -- no extractable text found.")
     return text
 
 

@@ -1,4 +1,5 @@
 """Centralised configuration -- every setting comes from environment variables."""
+
 import os
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")

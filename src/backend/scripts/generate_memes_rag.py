@@ -1,46 +1,59 @@
 import csv
-import requests
 import os
-import re
 import random
+import re
+
+import requests
 
 # Configuración
 API_URL = os.getenv("API_URL", "http://localhost:5000")
 LLAMA_URL = os.getenv("LLAMA_URL", "http://localhost:8080")
-OUTPUT_CSV = "generated_memes_rag.csv"
+OUTPUT_CSV = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__), "..", "..", "evaluation", "results", "generated_memes_rag.csv"
+    )
+)
 MISOGYNISTIC_TYPES = ["shaming", "stereotype", "objectification", "violence"]
 TOTAL_MEMES = 50
 EXAMPLES_CONTEXT = 3
-CSV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "training.csv"))
+CSV_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "data", "training", "training.csv")
+)
 
-# Prompts para memes misóginos
+_MEME_FORMAT_HINT = "Output ONLY the meme text, one line, no explanation."
+
+# Prompts for each meme type
 PROMPTS = {
     "shaming": (
-        "Write one short internet meme caption in classic meme format (like 'Me: ... Also me: ...', "
-        "'When you...', 'Nobody: ... Women: ...') that shames or belittles women for not meeting expectations. "
-        "Be humorous and sarcastic in meme style. Output ONLY the meme text, one line, no explanation."
+        "Write one short internet meme caption in classic meme format "
+        "(like 'Me: ... Also me: ...', 'When you...', 'Nobody: ... Women: ...') "
+        "that shames or belittles women for not meeting expectations. "
+        f"Be humorous and sarcastic in meme style. {_MEME_FORMAT_HINT}"
     ),
     "stereotype": (
-        "Write one short internet meme caption in classic meme format (like 'Women be like...', "
-        "'Every woman when...', 'POV: you ask a woman to...') that plays on stereotypes about women "
-        "such as cooking, shopping, driving, or emotions. "
-        "Be humorous in meme style. Output ONLY the meme text, one line, no explanation."
+        "Write one short internet meme caption in classic meme format "
+        "(like 'Women be like...', 'Every woman when...', 'POV: you ask a woman to...') "
+        "that plays on stereotypes about women such as cooking, shopping, driving, or emotions. "
+        f"Be humorous in meme style. {_MEME_FORMAT_HINT}"
     ),
     "objectification": (
-        "Write one short internet meme caption in classic meme format (like 'Women are just...', "
-        "'The only thing women are good for...', 'POV: she thinks she\\'s a person') that reduces "
+        "Write one short internet meme caption in classic meme format "
+        "(like 'Women are just...', 'The only thing women are good for...', "
+        "'POV: she thinks she\\'s a person') that reduces "
         "women to their physical appearance or domestic role. "
-        "Output ONLY the meme text, one line, no explanation."
+        f"{_MEME_FORMAT_HINT}"
     ),
     "violence": (
-        "Write one short internet meme caption in classic dark-humor meme format (like 'Me explaining to my wife...', "
-        "'If she doesn\\'t obey...', 'When she says no:') that implies control or threats towards women. "
-        "Output ONLY the meme text, one line, no explanation."
+        "Write one short internet meme caption in classic dark-humor meme format "
+        "(like 'Me explaining to my wife...', 'If she doesn\\'t obey...', 'When she says no:') "
+        f"that implies control or threats towards women. {_MEME_FORMAT_HINT}"
     ),
-    "neutral": "Write a single short funny internet meme caption unrelated to gender. Output ONLY the meme text, one line, no explanation."
+    "neutral": (
+        f"Write a single short funny internet meme caption unrelated to gender. {_MEME_FORMAT_HINT}"
+    ),
 }
 
-# Queries variadas para recuperar contexto RAG diverso por tipo
+# Varied queries for diverse RAG context retrieval per type
 RAG_QUERIES = {
     "shaming": [
         "women failing responsibilities",
@@ -73,16 +86,22 @@ def get_rag_context(mtype):
     query = random.choice(RAG_QUERIES.get(mtype, ["meme"]))
     try:
         resp = requests.post(
-            f"{API_URL}/retrieve",
-            json={"question": query, "top_k": 3},
-            timeout=30
+            f"{API_URL}/retrieve", json={"question": query, "top_k": 3}, timeout=30
         )
         if resp.ok:
             chunks = resp.json().get("chunks", [])
             return " | ".join(c["text"][:120] for c in chunks if c.get("text"))
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         pass
     return ""
+
+
+_REFUSAL_RE = re.compile(
+    r"(the context|does not contain|not provide|provided context"
+    r"|cannot generate|no meme|no context|from sources"
+    r"|from context|unsuitable|threatening language)",
+    re.IGNORECASE,
+)
 
 
 def load_examples_by_type(csv_path, types, n_examples=3):
@@ -97,6 +116,7 @@ def load_examples_by_type(csv_path, types, n_examples=3):
                         groups[t].append(text.strip())
     return groups
 
+
 def build_prompt(mtype, examples, already_generated=None):
     base = PROMPTS[mtype]
     parts = [base]
@@ -105,34 +125,44 @@ def build_prompt(mtype, examples, already_generated=None):
         parts.append(f"Examples:\n{exs}")
     if already_generated:
         avoid = "\n".join(f"- {m[:80]}" for m in already_generated[-8:])
-        parts.append(f"Do NOT repeat or closely paraphrase any of these already used memes:\n{avoid}")
+        parts.append(
+            f"Do NOT repeat or closely paraphrase any of these already used memes:\n{avoid}"
+        )
     parts.append("Meme:")
     return "\n\n".join(parts)
 
+
 def clean_meme(text):
     # Eliminar cualquier bloque entre corchetes o paréntesis
-    text = re.sub(r'\[.*?\]', '', text)
-    text = re.sub(r'\(.*?\)', '', text)
+    text = re.sub(r"\[.*?\]", "", text)
+    text = re.sub(r"\(.*?\)", "", text)
     # Eliminar corchetes / paréntesis sueltos que queden
-    text = re.sub(r'[\[\]()]+', '', text)
+    text = re.sub(r"[\[\]()]+", "", text)
     # Eliminar URLs
-    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r"http\S+", "", text)
     # Eliminar nombres de meme sites
-    text = re.sub(r'\b(memecenter|meme\s*center|quickmeme|memegenerator|imgflip|roflbot|cheezburger)\b\S*', '', text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\b(memecenter|meme\s*center|quickmeme|memegenerator|imgflip|roflbot|cheezburger)\b\S*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
     # Eliminar hashtags y asteriscos
-    text = re.sub(r'#\S*', '', text)
-    text = re.sub(r'\*+', '', text)
+    text = re.sub(r"#\S*", "", text)
+    text = re.sub(r"\*+", "", text)
     # Limpiar espacios múltiples
-    text = re.sub(r'\s{2,}', ' ', text)
+    text = re.sub(r"\s{2,}", " ", text)
 
     # Recoger hasta 3 líneas válidas y unirlas con " / "
     good_lines = []
     for line in text.splitlines():
-        line = line.strip().strip('"').strip("'").rstrip(',.[]').strip()
-        line = re.sub(r'^(meme:|example:|answer:|output:|\d+[\.\)])', '', line, flags=re.IGNORECASE).strip()
+        line = line.strip().strip('"').strip("'").rstrip(",.[]").strip()
+        line = re.sub(
+            r"^(meme:|example:|answer:|output:|\d+[\.\)])", "", line, flags=re.IGNORECASE
+        ).strip()
         if not line or line.upper() in ("OR", "-", "*"):
             continue
-        if re.search(r'(the context|does not contain|not provide|provided context|cannot generate|no meme|no context|from sources|from context|unsuitable|threatening language)', line, re.IGNORECASE):
+        if _REFUSAL_RE.search(line):
             continue
         if len(line) < 5:
             continue
@@ -146,13 +176,17 @@ def clean_meme(text):
     result = " / ".join(good_lines)
     # Truncar si es demasiado largo
     if len(result) > 220:
-        result = result[:220].rsplit(' ', 1)[0]
+        result = result[:220].rsplit(" ", 1)[0]
     return result
 
+
 def generate_meme(prompt, context=""):
-    # Construir prompt Mistral con contexto RAG opcional
+    # Build Mistral prompt with optional RAG context
     if context:
-        full_prompt = f"[INST] Use this context as inspiration (do NOT copy it verbatim):\n{context}\n\n{prompt} [/INST]"
+        full_prompt = (
+            f"[INST] Use this context as inspiration (do NOT copy it verbatim):\n"
+            f"{context}\n\n{prompt} [/INST]"
+        )
     else:
         full_prompt = f"[INST] {prompt} [/INST]"
     resp = requests.post(
@@ -163,18 +197,19 @@ def generate_meme(prompt, context=""):
             "temperature": 0.95,
             "top_p": 0.95,
             "repeat_penalty": 1.3,
-            "stop": ["[INST]", "</s>", "\n\n"]
+            "stop": ["[INST]", "</s>", "\n\n"],
         },
-        timeout=60
+        timeout=60,
     )
     resp.raise_for_status()
     return resp.json().get("content", "")
 
-def main():
+
+def main():  # pylint: disable=too-many-locals
     real_examples = load_examples_by_type(CSV_PATH, MISOGYNISTIC_TYPES, n_examples=EXAMPLES_CONTEXT)
     real_examples["neutral"] = []
 
-    # 50 memes: ~60% misóginos, ~40% neutrales
+    # ~60% misogynistic, ~40% neutral
     all_types = MISOGYNISTIC_TYPES * 3 + ["neutral"] * 2
     type_pool = (all_types * (TOTAL_MEMES // len(all_types) + 1))[:TOTAL_MEMES]
     random.shuffle(type_pool)
@@ -199,7 +234,7 @@ def main():
                     meme_text = candidate
                     used_memes.add(candidate)
                     break
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 pass
             tries += 1
 
@@ -207,12 +242,36 @@ def main():
             rows.append({"type": mtype if mtype != "neutral" else "meme", "text": meme_text})
             print(f"  [{len(rows)}/{TOTAL_MEMES}] {mtype}: {meme_text[:60]}")
 
-    with open(OUTPUT_CSV, "w", newline='', encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["type", "text"])
-        writer.writeheader()
-        writer.writerows(rows)
+    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, delimiter="\t")
+        writer.writerow(
+            [
+                "file_name",
+                "misogynous",
+                "shaming",
+                "stereotype",
+                "objectification",
+                "violence",
+                "Text Transcription",
+            ]
+        )
+        for i, row in enumerate(rows, 1):
+            mtype = row["type"]
+            is_misog = 1 if mtype in MISOGYNISTIC_TYPES else 0
+            writer.writerow(
+                [
+                    f"gen_{i}.jpg",
+                    is_misog,
+                    1 if mtype == "shaming" else 0,
+                    1 if mtype == "stereotype" else 0,
+                    1 if mtype == "objectification" else 0,
+                    1 if mtype == "violence" else 0,
+                    row["text"],
+                ]
+            )
 
     print(f"Generados {len(rows)} memes en {OUTPUT_CSV}")
+
 
 if __name__ == "__main__":
     main()

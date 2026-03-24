@@ -37,7 +37,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./models:/models:ro
+      - ./src/models/gguf:/models:ro
     command: >
       -m /models/mistral-7b-instruct-v0.2.Q4_K_M.gguf
       --host 0.0.0.0
@@ -60,7 +60,7 @@ services:
 
   flask_app:
     build:
-      context: ./flask_app
+      context: ./src/backend/flask_app
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
@@ -81,7 +81,7 @@ services:
       BM25_DIR:          /data/bm25
       REGISTRY_PATH:     /data/docs_registry.json
     volumes:
-      - flask_data:/data
+      - ./src/data:/data
     depends_on:
       minio:
         condition: service_healthy
@@ -92,7 +92,7 @@ services:
 
   streamlit:
     build:
-      context: ./frontend
+      context: ./src/frontend/streamlit
       dockerfile: Dockerfile
     ports:
       - "8501:8501"

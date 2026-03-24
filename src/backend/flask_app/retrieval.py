@@ -5,9 +5,9 @@ Supports three modes controlled by config.RETRIEVAL_METHOD:
   bm25   -- sparse keyword matching via rank_bm25
   hybrid -- fuse dense + BM25 rankings with RRF
 """
+
 from __future__ import annotations
 
-import json
 import os
 import pickle
 from typing import Dict, List, Optional
@@ -26,21 +26,24 @@ from config import (
     TOP_K,
 )
 
+# pylint: disable=invalid-name
 _embed_model: Optional[SentenceTransformer] = None
 _chroma_client: Optional[chromadb.HttpClient] = None
 
-BM25_DIR = os.getenv("BM25_DIR", "/data/bm25")
+BM25_DIR = os.getenv(
+    "BM25_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "bm25"))
+)
 
 
 def get_embedding_model() -> SentenceTransformer:
-    global _embed_model
+    global _embed_model  # pylint: disable=global-statement
     if _embed_model is None:
         _embed_model = SentenceTransformer(EMBEDDING_MODEL)
     return _embed_model
 
 
 def get_chroma_client() -> chromadb.HttpClient:
-    global _chroma_client
+    global _chroma_client  # pylint: disable=global-statement
     if _chroma_client is None:
         _chroma_client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
     return _chroma_client
@@ -80,8 +83,7 @@ def index_chunks(doc_id: str, filename: str, chunks: List[str]):
     embeddings = model.encode(chunks).tolist()
     ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
     metadatas = [
-        {"doc_id": doc_id, "filename": filename, "chunk_index": i}
-        for i in range(len(chunks))
+        {"doc_id": doc_id, "filename": filename, "chunk_index": i} for i in range(len(chunks))
     ]
 
     batch = 500
@@ -96,13 +98,15 @@ def index_chunks(doc_id: str, filename: str, chunks: List[str]):
 
     corpus = _load_bm25_corpus()
     for i, chunk in enumerate(chunks):
-        corpus.append({
-            "id": ids[i],
-            "doc_id": doc_id,
-            "filename": filename,
-            "chunk_index": i,
-            "text": chunk,
-        })
+        corpus.append(
+            {
+                "id": ids[i],
+                "doc_id": doc_id,
+                "filename": filename,
+                "chunk_index": i,
+                "text": chunk,
+            }
+        )
     _save_bm25_corpus(corpus)
 
 
@@ -125,7 +129,7 @@ def _dense_retrieve(query: str, top_k: int) -> List[Dict]:
 
     try:
         count = collection.count()
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         count = 0
     if count == 0:
         return []
@@ -138,13 +142,15 @@ def _dense_retrieve(query: str, top_k: int) -> List[Dict]:
     hits: list[dict] = []
     for i in range(len(results["ids"][0])):
         distance = results["distances"][0][i] if results["distances"] else 0.0
-        hits.append({
-            "chunk_id": results["ids"][0][i],
-            "text": results["documents"][0][i],
-            "doc_id": results["metadatas"][0][i]["doc_id"],
-            "filename": results["metadatas"][0][i]["filename"],
-            "score": round(1.0 - distance, 4),
-        })
+        hits.append(
+            {
+                "chunk_id": results["ids"][0][i],
+                "text": results["documents"][0][i],
+                "doc_id": results["metadatas"][0][i]["doc_id"],
+                "filename": results["metadatas"][0][i]["filename"],
+                "score": round(1.0 - distance, 4),
+            }
+        )
     return hits
 
 
@@ -164,13 +170,15 @@ def _bm25_retrieve(query: str, top_k: int) -> List[Dict]:
         if scores[idx] <= 0:
             continue
         c = corpus[idx]
-        hits.append({
-            "chunk_id": c["id"],
-            "text": c["text"],
-            "doc_id": c["doc_id"],
-            "filename": c["filename"],
-            "score": round(float(scores[idx]), 4),
-        })
+        hits.append(
+            {
+                "chunk_id": c["id"],
+                "text": c["text"],
+                "doc_id": c["doc_id"],
+                "filename": c["filename"],
+                "score": round(float(scores[idx]), 4),
+            }
+        )
     return hits
 
 

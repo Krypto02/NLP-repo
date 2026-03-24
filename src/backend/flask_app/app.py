@@ -8,6 +8,7 @@ DELETE /documents/{id}  Remove a document and its chunks
 POST   /query           Ask a question and get a grounded answer
 GET    /health          Verify all services are reachable
 """
+
 from __future__ import annotations
 
 import json
@@ -50,7 +51,12 @@ minio_client = Minio(
     secure=False,
 )
 
-REGISTRY_PATH = os.getenv("REGISTRY_PATH", "/data/docs_registry.json")
+REGISTRY_PATH = os.getenv(
+    "REGISTRY_PATH",
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "data", "docs_registry.json")
+    ),
+)
 
 
 def _load_registry() -> dict:
@@ -78,19 +84,19 @@ def health():
     try:
         minio_client.list_buckets()
         checks["minio"] = "ok"
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         checks["minio"] = f"error: {exc}"
 
     try:
         get_chroma_client().heartbeat()
         checks["chromadb"] = "ok"
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         checks["chromadb"] = f"error: {exc}"
 
     try:
         r = http_requests.get(f"{LLM_URL}/health", timeout=5)
         checks["llm"] = "ok" if r.status_code == 200 else f"status {r.status_code}"
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         checks["llm"] = f"error: {exc}"
 
     all_ok = all(v == "ok" for v in checks.values())
@@ -110,7 +116,10 @@ def upload_document():
 
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if ext not in ("pdf", "docx"):
-        return jsonify({"error": f"Unsupported file type: .{ext}. Only PDF and DOCX accepted."}), 400
+        return (
+            jsonify({"error": f"Unsupported file type: .{ext}. Only PDF and DOCX accepted."}),
+            400,
+        )
 
     file_bytes = file.read()
     if not file_bytes:
@@ -147,12 +156,17 @@ def upload_document():
     }
     _save_registry(registry)
 
-    return jsonify({
-        "document_id": doc_id,
-        "filename": filename,
-        "num_chunks": len(chunks),
-        "message": "Document uploaded, parsed, and indexed successfully.",
-    }), 201
+    return (
+        jsonify(
+            {
+                "document_id": doc_id,
+                "filename": filename,
+                "num_chunks": len(chunks),
+                "message": "Document uploaded, parsed, and indexed successfully.",
+            }
+        ),
+        201,
+    )
 
 
 @app.route("/documents", methods=["GET"])
@@ -180,7 +194,7 @@ def delete_document(doc_id):
 
     try:
         minio_client.remove_object(MINIO_BUCKET, f"{doc_id}/{filename}")
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         pass
 
     delete_doc_chunks(doc_id)
@@ -200,7 +214,17 @@ def retrieve_chunks():
     top_k = data.get("top_k", TOP_K)
     method = data.get("method", None)
     chunks = retrieve(question, top_k=int(top_k), method=method)
-    return jsonify({"chunks": [{"text": c["text"], "filename": c["filename"], "score": c.get("score")} for c in chunks]}), 200
+    return (
+        jsonify(
+            {
+                "chunks": [
+                    {"text": c["text"], "filename": c["filename"], "score": c.get("score")}
+                    for c in chunks
+                ]
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/query", methods=["POST"])
@@ -225,19 +249,29 @@ def query():
             }
             for c in result["sources"]
         ]
-        return jsonify({
-            "answer": result["answer"],
-            "sources": sources,
-            "agent_iterations": result["iterations"],
-        }), 200
+        return (
+            jsonify(
+                {
+                    "answer": result["answer"],
+                    "sources": sources,
+                    "agent_iterations": result["iterations"],
+                }
+            ),
+            200,
+        )
 
     chunks = retrieve(question, top_k=int(top_k), method=method)
 
     if not chunks:
-        return jsonify({
-            "answer": "No relevant documents found. Please upload documents first.",
-            "sources": [],
-        }), 200
+        return (
+            jsonify(
+                {
+                    "answer": "No relevant documents found. Please upload documents first.",
+                    "sources": [],
+                }
+            ),
+            200,
+        )
 
     answer = generate_answer(question, chunks)
 
