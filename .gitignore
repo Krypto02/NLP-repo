@@ -22,8 +22,7 @@ wheels/
 *.egg
 
 # Jupyter Notebook
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
+.ipynb_checkpoints/
 
 # IPython
 profile_default/
@@ -31,12 +30,9 @@ ipython_config.py
 
 # Environments
 .env
-.venv
+.venv/
 env/
 venv/
-ENV/
-env.bak/
-venv.bak/
 
 # IDE
 .vscode/
@@ -45,16 +41,21 @@ venv.bak/
 *.swo
 *~
 
-# Data files (uncomment if you don't want to track data)
-# data/*.csv
-# data/*.tsv
-# data/*.txt
+# Testing
+.pytest_cache/
 
-# Model files
+# Model weights (too large for Git)
+*.gguf
+*.onnx
+*.onnx.data
+*.pt
 *.pkl
 *.h5
 *.model
 
 # OS
-.DS_Store
 Thumbs.db
+.DS_Store
+
+# BM25 index (generated at runtime)
+src/data/bm25/

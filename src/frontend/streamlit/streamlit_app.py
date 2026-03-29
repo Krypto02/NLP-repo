@@ -67,12 +67,12 @@ method = col_method.selectbox("Retrieval method", ["hybrid", "dense", "bm25"])
 question = st.text_input("Your question:")
 
 if st.button("Ask") and question:
-    mode_val = "agent" if "agent" in mode else "default"
+    query_mode = "agent" if "agent" in mode else "default"
     with st.spinner("Searching and generating answer..."):
         try:
             r = requests.post(
                 f"{API_URL}/query",
-                json={"question": question, "mode": mode_val, "method": method},
+                json={"question": question, "mode": query_mode, "method": method},
                 timeout=180,
             )
             if r.status_code == 200:

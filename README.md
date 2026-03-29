@@ -16,26 +16,30 @@ A classifier trained on the generated and original meme dataset that identifies 
 
 ```
 .
-+-- src/
-�   +-- backend/
-�   �   +-- flask_app/         # Flask REST API (RAG orchestration)
-�   �   +-- scripts/           # Data upload & meme generation scripts
-�   +-- frontend/
-�   �   +-- streamlit/         # Streamlit web UI
-�   +-- data/
-�   �   +-- training/          # training.csv (original meme dataset)
-�   �   +-- examples/          # examples.txt / examples.docx (RAG source docs)
-�   �   +-- test_docs/         # Test PDFs and DOCX files
-�   +-- models/
-�   �   +-- gguf/              # Quantized GGUF model weights (not committed)
-�   +-- evaluation/
-�       +-- results/           # generated_memes_rag.csv, retrieval metrics
-�       +-- datasets/          # eval_dataset.json
-+-- notebooks/                 # Jupyter notebooks (Lab 3)
-+-- tests/                     # Unit tests (pytest)
-+-- requirements.txt
-+-- docker-compose.yml
-+-- pyproject.toml
+├── src/
+│   ├── app.py                 # Streamlit classifier demo (main entry point)
+│   ├── model.py               # MultiTaskModel (binary + multi-label heads)
+│   ├── MultiClasifier.ipynb   # Training notebook
+│   ├── backend/
+│   │   ├── flask_app/         # Flask REST API (RAG orchestration)
+│   │   └── scripts/           # Data upload & meme generation scripts
+│   ├── frontend/
+│   │   └── streamlit/         # Docker-based Streamlit UI (RAG Q&A)
+│   ├── data/
+│   │   ├── training/          # training.csv (original meme dataset)
+│   │   ├── examples/          # examples.txt / examples.docx (RAG source docs)
+│   │   └── test_docs/         # Test PDFs and DOCX files
+│   ├── models/
+│   │   ├── gguf/              # Quantized GGUF model weights (not committed)
+│   │   └── trained/           # multitask_model_weights.pt, ml_thresholds.json
+│   └── evaluation/
+│       ├── results/           # generated_memes_rag.csv, retrieval metrics
+│       └── datasets/          # eval_dataset.json
+├── notebooks/                 # Jupyter notebooks (Labs 1-3)
+├── tests/                     # Unit tests (pytest)
+├── requirements.txt
+├── docker-compose.yml
+└── pyproject.toml
 ```
 
 ## Dataset
@@ -66,27 +70,39 @@ wget -O src/models/gguf/mistral-7b-instruct-v0.2.Q4_K_M.gguf \
 
 ### 2. Launch the RAG stack
 
-```bash
-docker-compose up --build
+```powershell
+# Start Docker Desktop first, then:
+docker compose up -d minio chromadb llama flask_app
 ```
 
-Services started: MinIO (9000), ChromaDB (8000), llama.cpp (8080), Flask API (5000), Streamlit (8501).
+Services started: MinIO (9000), ChromaDB (8000), llama.cpp (8080), Flask API (5000).
 
 ### 3. Upload the meme corpus to the vector store
 
-```bash
-python src/backend/scripts/upload_training_to_rag.py
+```powershell
+cd src
+python -m backend.scripts.upload_training_to_rag
 ```
 
-### 4. Generate memes
+### 4. Launch the classifier demo
 
-```bash
-python src/backend/scripts/generate_memes_rag.py
+```powershell
+cd ..   # back to project root
+python -m streamlit run src/app.py --server.port 8501
+```
+
+Open http://localhost:8501 — four tabs: Examples, Random from Dataset, AI Generator (live Mistral 7B), Write your own.
+
+### 5. Generate memes (batch, optional)
+
+```powershell
+cd src
+python -m backend.scripts.generate_memes_rag
 ```
 
 Output: `src/evaluation/results/generated_memes_rag.csv` (same TSV format as `training.csv`).
 
-### 5. Run tests
+### 6. Run tests
 
 ```bash
 pytest tests/ -v
