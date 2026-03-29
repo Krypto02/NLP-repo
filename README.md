@@ -19,7 +19,7 @@ A classifier trained on the generated and original meme dataset that identifies 
 ├── src/
 │   ├── app.py                 # Streamlit classifier demo (main entry point)
 │   ├── model.py               # MultiTaskModel (binary + multi-label heads)
-│   ├── MultiClasifier.ipynb   # Training notebook
+│   ├── MultiClassifier.ipynb   # Training notebook
 │   ├── backend/
 │   │   ├── flask_app/         # Flask REST API (RAG orchestration)
 │   │   └── scripts/           # Data upload & meme generation scripts
@@ -146,7 +146,17 @@ curl -X POST http://localhost:5000/query -H "Content-Type: application/json" \
 # Health check
 curl http://localhost:5000/health
 ```
+## Reproducibility
 
+All random seeds are fixed for full reproducibility:
+```python
+RANDOM_STATE = 42
+random.seed(42)
+numpy.random.seed(42)
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)  # when CUDA available
+```
+All `train_test_split` calls use `random_state=42` with stratification.
 ## Code Quality
 
 - **black** � code formatting (line-length 100)

@@ -1,7 +1,7 @@
 """
 MultiTaskModel — Shared RoBERTa backbone with binary + multi-label heads.
 
-Used by both the training notebook (MultiClasifier.ipynb) and the
+Used by both the training notebook (MultiClassifier.ipynb) and the
 Streamlit demo (app.py) for consistent model loading.
 """
 

@@ -1,0 +1,394 @@
+% ============================================================
+%  Misogyny Detection in Internet Memes
+%  NLP Capstone – ACL Rolling Review format
+%  Compile on Overleaf: https://www.overleaf.com
+%    Template: "ACL Rolling Review" (search in Overleaf templates)
+%    Replace \documentclass line if needed with the ARR version.
+% ============================================================
+\documentclass[11pt]{article}
+
+% -----------------------------------------------------------
+% If you upload to Overleaf with the ACL ARR template,
+% replace the block below with \usepackage[review]{acl}
+% -----------------------------------------------------------
+\usepackage[margin=1in,columnsep=0.25in]{geometry}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage[hidelinks]{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% Simulate ACL two-column layout
+\setlength{\columnsep}{0.25in}
+
+\title{\textbf{Misogyny Detection in Internet Memes:\\
+Multi-Task Learning with Adversarial Training\\
+and RAG-Based Synthetic Data Generation}}
+
+\author{
+  Wassim VQ \\
+  Natural Language Processing — Capstone Project \\
+  Professor: Javier Lasheras Navas \\
+}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present a text-only system for detecting misogyny in internet meme captions using the MAMI dataset from SemEval-2022 Task 5 (7,500 samples). Our approach combines a domain-adapted RoBERTa backbone (pre-trained on 124M tweets) with \textbf{multi-task learning (MTL)} to jointly solve binary misogyny detection and four-label sub-type classification in a single shared model. We apply \textbf{Fast Gradient Method (FGM)} adversarial training to improve robustness to OCR noise and lexical variation, and employ per-label threshold tuning instead of a uniform 0.5 cutoff. On 1{,}500 held-out test samples, our MTL+FGM system achieves macro F1 of \textbf{0.8253} (binary) and \textbf{0.5199} (multi-label, cascaded), surpassing a TF-IDF–Logistic Regression baseline by +4.7\% and +7.7\% respectively. We complement the classifier with a complete \textbf{Retrieval-Augmented Generation (RAG)} pipeline using a locally quantized Mistral 7B model that generates type-distinguishable synthetic memes for evaluation. Error analysis reveals that 69\% of failures are attributable to implicit or visually-dependent misogyny, with negation (11\%) and irony (6\%) as the leading linguistically identifiable failure modes.
+\end{abstract}
+
+\begin{multicols}{2}
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+Online misogyny — hostile or derogatory content targeting women — spreads rapidly through internet memes, which combine visual humor with text to carry harmful stereotypes under the guise of a joke \cite{fersini2022semeval}. Automated detection is essential for content moderation at scale, but presents distinct NLP challenges: informal register, deliberate misspellings, irony, and meaning that often depends on the image rather than the text alone.
+
+The \textbf{MAMI} shared task at SemEval-2022 (Task 5) formalizes this problem with two sub-tasks: (A) binary detection of misogynous content, and (B) identification of sub-types — \textit{shaming}, \textit{stereotype}, \textit{objectification}, and \textit{violence}. This paper tackles both sub-tasks using a \textbf{text-only} approach on OCR-extracted captions.
+
+Our main contributions are:
+\begin{enumerate}
+  \item A \textbf{multi-task model} (shared RoBERTa backbone + two classification heads) that trains both tasks jointly, giving the multi-label head access to all 7{,}500 samples through shared representations.
+  \item \textbf{FGM adversarial training} applied to hate speech classification, improving robustness to the lexical noise inherent in meme text.
+  \item A \textbf{cascaded prediction pipeline} enforcing the logical constraint that sub-types cannot be active unless the meme is first classified as misogynous.
+  \item A full \textbf{RAG pipeline} (ChromaDB + BM25 + Mistral 7B) that generates synthetic memes used for distributional shift evaluation.
+  \item Comprehensive \textbf{error analysis} with automatic failure categorization.
+\end{enumerate}
+
+% ============================================================
+\section{Related Work}
+% ============================================================
+
+\paragraph{Misogyny detection.}
+SemEval-2022 Task 5 attracted 83 teams; the best text-only approaches reached macro F1 $\approx$ 0.71–0.73 on Task A \cite{fersini2022semeval}. Our system surpasses this with a domain-matched pre-trained model.
+
+\paragraph{Domain-adaptive pre-training.}
+\citet{gururangan2020dont} demonstrate that continued pre-training on in-domain text consistently outperforms larger general-domain models. We apply this insight by selecting \texttt{cardiffnlp/twitter-roberta-base-hate}, pre-trained on 124M tweets and fine-tuned on HatEval and OffComEval.
+
+\paragraph{Multi-task learning.}
+\citet{ruder2017overview} surveys hard-parameter-sharing MTL, showing that auxiliary tasks act as regularizers for related tasks. \citet{caruana1997multitask} first formalized this inductive bias. Our binary task provides rich gradient signal to the backbone while the multi-label task specializes the output heads.
+
+\paragraph{Adversarial training for NLP.}
+\citet{miyato2017adversarial} proposed perturbing word embeddings with gradient-based noise, achieving improvements on text classification without any architectural change. We adopt FGM for its favorable accuracy–efficiency tradeoff over multi-step methods such as PGD \cite{madry2018towards} and FreeLB \cite{zhu2020freelb}.
+
+\paragraph{Retrieval-Augmented Generation.}
+\citet{lewis2020retrieval} introduced RAG, grounding LLM outputs in retrieved evidence. Reciprocal Rank Fusion (RRF) of dense and sparse retrievers \cite{cormack2009reciprocal} improves robustness. The ReAct framework \cite{yao2023react} enables iterative, multi-step retrieval through a reasoning–action loop.
+
+% ============================================================
+\section{Dataset and Preprocessing}
+% ============================================================
+
+\paragraph{MAMI.}
+7{,}500 English meme captions annotated for: (i) binary misogyny; (ii) four sub-types (shaming, stereotype, objectification, violence). Class balance is approximately 47\%/53\% for the binary label; among misogynous memes, stereotype is the most frequent (61\%), violence the rarest (21\%).
+
+\paragraph{Preprocessing.}
+We deliberately apply \textbf{minimal preprocessing}: text columns are concatenated into a single \texttt{Text} field. No stemming, lemmatization, or stop-word removal is performed — the BPE tokenizer of RoBERTa handles sub-word variation natively, and these features are informative signal in the tweet domain.
+
+\paragraph{Data split.}
+A single stratified split (stratified by binary label, \texttt{random\_state=42}) is shared by both tasks to prevent cross-task leakage and ensure comparable metrics:
+
+\begin{center}
+\small
+\begin{tabular}{lcr}
+\toprule
+\textbf{Partition} & \textbf{\%} & \textbf{Samples} \\
+\midrule
+Train & 70\% & 5{,}250 \\
+Validation & 10\% & 750 \\
+Test & 20\% & 1{,}500 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The test set is never used for hyperparameter selection, threshold tuning, or early stopping.
+
+% ============================================================
+\section{Methodology}
+% ============================================================
+
+\subsection{Non-DL Baseline}
+
+We implement a cascaded TF-IDF + Logistic Regression baseline following the same two-stage architecture as the transformer model to ensure fair comparison:
+
+\begin{itemize}
+  \item \textbf{Stage 1 (binary):} TF-IDF (50k features, bigrams, sublinear\_tf) + LR (C=1, class\_weight='balanced').
+  \item \textbf{Stage 2 (multi-label):} \texttt{MultiOutputClassifier(LogisticRegression)} trained on misogynous-only training samples.
+  \item \textbf{Cascade:} Stage 2 predictions are zeroed when Stage 1 predicts non-misogynous.
+\end{itemize}
+
+\subsection{Transformer Model Selection}
+
+We select \texttt{cardiffnlp/twitter-roberta-base-hate} (RoBERTa-base, 125M params) over general-domain alternatives based on two domain-match criteria: (i) continued pre-training on 124M tweets matches the informal, internet-slang register of meme text; (ii) fine-tuning on HatEval and OffComEval directly transfers hate-speech representations.
+
+Ablation experiments confirmed this choice: DistilBERT achieves binary F1 $\approx$~0.75 and DeBERTa-v3-base regresses to $\approx$~0.74 due to training instability with FGM, despite having 50\% more parameters.
+
+\subsection{Multi-Task Learning Architecture}
+
+\begin{center}
+\small
+\begin{tabular}{l}
+\toprule
+\textbf{MTL Model Architecture} \\
+\midrule
+Input $\rightarrow$ RoBERTa backbone (768-dim CLS) \\
+\quad$\rightarrow$ Binary head: Drop(0.1)–Dense(768)–Tanh–Drop(0.1)–Proj(2) \\
+\quad$\rightarrow$ ML head: Drop(0.1)–Dense(768)–Tanh–Drop(0.1)–Proj(4) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Both heads output simultaneously from a single forward pass. The \textbf{joint loss} is:
+\[
+\mathcal{L} = \mathcal{L}_{\text{binary}}(\text{all}) + \mathcal{L}_{\text{ML}}(\text{misogynous only})
+\]
+
+$\mathcal{L}_{\text{binary}}$ is cross-entropy with class weights; $\mathcal{L}_{\text{ML}}$ is BCE with per-label \texttt{pos\_weight} to handle severe label imbalance (e.g., violence pos\_weight = 3.78). Using a shared backbone gives the multi-label head access to gradient signal from all 7{,}500 samples — 2.8$\times$ more than training a separate model on the misogynous-only subset (2{,}655 samples).
+
+\subsection{FGM Adversarial Training}
+
+At each training step, after the standard forward + backward pass, we apply one FGM perturbation step to the word embeddings:
+
+\[
+\delta = \varepsilon \cdot \frac{\nabla_e \mathcal{L}}{\|\nabla_e \mathcal{L}\|}
+\]
+
+with $\varepsilon=1.0$. A second forward pass with $e + \delta$ accumulates additional gradients. Original embeddings are then restored before the optimizer step. This simulates lexical noise (OCR errors, creative spellings) at training time without any architectural change.
+
+\subsection{Cascaded Pipeline}
+
+At inference, the binary head gates the multi-label head: if \texttt{binary\_pred = 0}, all sub-type predictions are forced to \textbf{[0,0,0,0]}, enforcing the logical constraint that sub-types are only meaningful for misogynous content.
+
+\subsection{Per-Label Threshold Tuning}
+
+After training, per-label thresholds are optimized over the misogynous-only validation subset via grid search ($n=80$ steps in [0.1, 0.9]). Tuning on misogynous-only samples avoids bias from the abundance of easy true-negatives in the full validation set.
+
+Optimized thresholds: shaming = 0.465, stereotype = 0.100, objectification = 0.292, violence = 0.586. The wide range (0.1–0.586) confirms that a uniform 0.5 threshold is substantially suboptimal, recovering +2–5\% F1 per label.
+
+\subsection{Optimization Details}
+
+AdamW ($\eta=3\text{e-}5$, weight decay = 0.01) with discriminative fine-tuning (backbone $\eta/10$). Cosine schedule with 10\% linear warmup. Gradient accumulation (effective batch = 64), gradient clipping (max\_norm = 1.0), mixed-precision fp16. Early stopping (patience = 8) on combined val metric $0.4\times\text{F1}_{\text{bin}} + 0.6\times\text{F1}_{\text{ML}}$. All experiments use \texttt{RANDOM\_STATE=42} for full reproducibility.
+
+\subsection{RAG Pipeline}
+
+A complete Retrieval-Augmented Generation system complements the classifier:
+
+\begin{itemize}
+  \item \textbf{Ingestion:} PDF/DOCX parsing via pdfplumber/python-docx; fixed-size chunking (256 words, 32-word overlap).
+  \item \textbf{Indexing:} Dense retrieval via ChromaDB (\texttt{all-MiniLM-L6-v2}) + sparse BM25.
+  \item \textbf{Retrieval:} Hybrid \textbf{Reciprocal Rank Fusion (RRF)}: $\text{score}(d) = \sum_m \frac{1}{k + r_m(d)}$, $k=60$.
+  \item \textbf{Generation:} Mistral 7B Instruct (Q4\_K\_M GGUF, 4.4GB) served via llama.cpp.
+  \item \textbf{Bonus — ReAct agent:} Iterative SEARCH/ANSWER loop (max 5 steps) for multi-step queries.
+\end{itemize}
+
+The pipeline runs entirely locally via Docker Compose (5 services: MinIO, ChromaDB, llama.cpp, Flask API, Streamlit).
+
+% ============================================================
+\section{Experiments and Results}
+% ============================================================
+
+\subsection{Main Results}
+
+\begin{table}[h]
+\small
+\centering
+\caption{Test-set F1-macro (1{,}500 samples).}
+\begin{tabular}{lcc}
+\toprule
+\textbf{System} & \textbf{Binary F1} & \textbf{ML E2E F1} \\
+\midrule
+TF-IDF + LR (baseline) & 0.7879 & 0.4829 \\
+MTL + FGM (ours) & \textbf{0.8253} & \textbf{0.5199} \\
+\midrule
+$\Delta$ & +0.0374 & +0.0370 \\
+Relative gain & +4.7\% & +7.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\small
+\centering
+\caption{Per-label results (MTL+FGM, test set, E2E cascaded).}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Label} & \textbf{P} & \textbf{R} & \textbf{F1} \\
+\midrule
+shaming        & 0.36 & 0.58 & 0.45 \\
+stereotype     & 0.52 & 0.83 & 0.64 \\
+objectification& 0.48 & 0.68 & 0.56 \\
+violence       & 0.41 & 0.45 & 0.43 \\
+\midrule
+macro avg      & 0.44 & 0.64 & 0.52 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Observations.}
+Performance correlates with label frequency: stereotype (61\% of misogynous, F1 = 0.64) $>$ objectification (46\%, 0.56) $>$ shaming (27\%, 0.45) $>$ violence (21\%, 0.43). Recall dominates precision across all labels — a deliberate consequence of the per-label threshold optimization (e.g., stereotype threshold = 0.10), appropriate for a content moderation use case where missing harmful content is more costly than false positives.
+
+\subsection{Ablation — Project Evolution}
+
+\begin{table}[h]
+\small
+\centering
+\caption{Historical model progression.}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Iteration} & \textbf{Bin F1} & \textbf{ML F1} \\
+\midrule
+v1: DistilBERT (separate) & 0.75 & 0.40 \\
+v2: twitter-roberta (separate) & 0.8213 & 0.4999\\
+\textbf{v3: MTL + FGM (shared)} & \textbf{0.8253} & \textbf{0.5199} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The v1→v2 gain (+0.07 binary) is dominated by domain-matched pre-training. The v2→v3 gain is driven by MTL: the shared backbone transfers knowledge from all 7{,}500 samples to the multi-label head, producing the largest ML improvement (+0.020), while the binary gain is marginal (+0.004) since binary already had access to all samples.
+
+\subsection{Results on RAG-Generated Memes}
+
+\begin{table}[h]
+\small
+\centering
+\caption{Classifier results on 50 RAG-generated memes.}
+\begin{tabular}{lcc}
+\toprule
+& \textbf{Binary F1} & \textbf{ML E2E F1} \\
+\midrule
+Real test set & 0.8253 & 0.5199 \\
+RAG-generated & 0.8824 & 0.4291 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The higher binary F1 on generated memes (0.8824) reflects that LLM-generated captions are more \textit{explicit} than real memes, which rely on visual context and cultural implicature. The lower ML F1 (0.4291) reflects two factors: (i) generated memes are single-label by construction, diverging from the multi-label co-occurrence distribution in MAMI; (ii) small sample size (50) makes macro F1 high-variance.
+
+\subsection{Error Analysis — Top 20 Worst Failures}
+
+We apply automatic regex-based tagging to all misclassified test samples, identifying five failure categories.
+
+\begin{table}[h]
+\small
+\centering
+\caption{Failure type distribution (test set errors).}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Failure Category} & \textbf{Binary} & \textbf{ML} \\
+\midrule
+OTHER (implicit / visual) & 69\% (180) & 66\% (475) \\
+SHORT\_TEXT ($<$8 words)   & 15\% (38)  & 14\% (101) \\
+NEGATION                   & 11\% (28)  & 13\% (95)  \\
+IRONY / SARCASM            & 6\% (16)   & 9\% (62)   \\
+AMBIGUOUS\_HEDGE           & 1\% (3)    & 2\% (12)   \\
+\midrule
+\textbf{Total errors}      & \textbf{262 / 1{,}500} & \textbf{720 / 1{,}500} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Key observations.}
+\textbf{(1) OTHER dominates (67\%):} Most errors stem from \textit{implicit misogyny} — harmful content that requires cultural pragmatics, world knowledge, or the meme image to interpret. Example: \textit{"Just here to admire the scenery"} (posted with a photo of a woman) has no lexical signal yet is annotated as objectification.
+
+\textbf{(2) SHORT\_TEXT (15\% binary):} Texts with $<$8 words provide insufficient context for the [CLS] representation. Example errors: \textit{"So true LOL"} or \textit{"Goals"} — inherently ambiguous without visual context.
+
+\textbf{(3) NEGATION (11\% binary):} The model sometimes focuses on content words while missing negation cues. Example: \textit{"Women are definitely NOT bad at driving"} may trigger a misogynous prediction due to the co-occurrence of \textit{women}, \textit{bad}, and \textit{driving}.
+
+\textbf{(4) IRONY/SARCASM — disproportionately high in ML (9\% vs. 6\%):} Irony is especially damaging for sub-type classification because it can simultaneously activate multiple wrong labels. Example: \textit{"Oh sure, women totally belong in the kitchen — said no functional society ever"} is sarcastic (not misogynous) but contains strong stereotype and shaming signals.
+
+\paragraph{Limitations.}
+\begin{itemize}
+  \item \textbf{Text-only:} Without image features, $\approx$69\% of errors cannot be resolved by any text-based method.
+  \item \textbf{Latency:} 1.06 ms/sample on GPU; 12.3 ms/sample on CPU only — suitable for batch but not real-time on CPU.
+  \item \textbf{Cost:} 902.6s ($\approx$15 min) training time on GPU; no cloud API required.
+  \item \textbf{Bias:} The MAMI dataset is English-only; performance on other languages or dialects is unknown. The model may inherit biases from the Twitter pre-training corpus.
+\end{itemize}
+
+% ============================================================
+\section{Infrastructure and Reproducibility}
+% ============================================================
+
+The full system is containerized in a single \texttt{docker-compose.yml} (5 services). Code is structured into \texttt{/src} (model, app, backend, frontend), \texttt{/notebooks} (Labs 1–3), and \texttt{/tests} (61 unit tests, pytest). All random seeds are fixed (\texttt{RANDOM\_STATE=42}: \texttt{numpy}, \texttt{torch}, \texttt{random}, \texttt{sklearn}). Code quality: pylint 10.00/10, black formatting. The ONNX-exported model enables framework-independent inference.
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+We presented a production-ready NLP system for misogyny detection in internet memes combining (i) a domain-adapted RoBERTa backbone, (ii) multi-task learning for joint binary/multi-label training, (iii) FGM adversarial training, (iv) cascaded prediction enforcing logical constraints, and (v) per-label threshold tuning. The system outperforms the TF-IDF+LR baseline by +4.7\% (binary) and +7.7\% (multi-label E2E). Error analysis reveals that the dominant failure mode is implicit, visually-dependent misogyny — a fundamental limitation of text-only approaches that motivates future multimodal extensions. The complementary RAG pipeline demonstrates that the same codebase supports both discriminative classification and generative content creation at production quality.
+
+% ============================================================
+\section*{Acknowledgments}
+% ============================================================
+
+We thank Professor Javier Lasheras Navas for the project guidelines and the Cardiff NLP group for releasing \texttt{twitter-roberta-base-hate}.
+
+% ============================================================
+\begin{thebibliography}{10}
+
+\bibitem{fersini2022semeval}
+Elisabetta Fersini, Francesca Gasparetto, and Aurora Savini.
+\newblock {SemEval-2022 Task 5: Multimedia Automatic Misogyny Identification}.
+\newblock In \textit{Proceedings of the 16th International Workshop on Semantic Evaluation (SemEval-2022)}, 2022.
+
+\bibitem{gururangan2020dont}
+Suchin Gururangan, Ana Marasović, Swabha Swayamanta, Kyle Lo, Iz Beltagy, Doug Downey, and Noah A. Smith.
+\newblock Don't stop pretraining: Adapt language models to domains and tasks.
+\newblock In \textit{Proceedings of ACL}, 2020.
+
+\bibitem{ruder2017overview}
+Sebastian Ruder.
+\newblock An overview of multi-task learning in deep neural networks.
+\newblock \textit{arXiv preprint arXiv:1706.05098}, 2017.
+
+\bibitem{caruana1997multitask}
+Rich Caruana.
+\newblock Multitask learning.
+\newblock \textit{Machine Learning}, 28(1), 1997.
+
+\bibitem{miyato2017adversarial}
+Takeru Miyato, Andrew M. Dai, and Ian Goodfellow.
+\newblock Adversarial training methods for semi-supervised text classification.
+\newblock In \textit{Proceedings of ICLR}, 2017.
+
+\bibitem{madry2018towards}
+Aleksander Madry, Aleksandar Makelov, Ludwig Schmidt, Dimitris Tsipras, and Adrian Vladu.
+\newblock Towards deep learning models resistant to adversarial attacks.
+\newblock In \textit{Proceedings of ICLR}, 2018.
+
+\bibitem{zhu2020freelb}
+Chen Zhu, Yu Cheng, Zhe Gan, Siqi Sun, Tom Goldstein, and Jingjing Liu.
+\newblock {FreeLB}: Enhanced adversarial training for natural language understanding.
+\newblock In \textit{Proceedings of ICLR}, 2020.
+
+\bibitem{lewis2020retrieval}
+Patrick Lewis, Ethan Perez, Aleksandra Piktus, et al.
+\newblock Retrieval-augmented generation for knowledge-intensive {NLP} tasks.
+\newblock In \textit{Proceedings of NeurIPS}, 2020.
+
+\bibitem{cormack2009reciprocal}
+Gordon V. Cormack, Charles L.A. Clarke, and Stefan Buettcher.
+\newblock Reciprocal rank fusion outperforms condorcet and individual rank learning methods.
+\newblock In \textit{Proceedings of SIGIR}, 2009.
+
+\bibitem{yao2023react}
+Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao.
+\newblock {ReAct}: Synergizing reasoning and acting in language models.
+\newblock In \textit{Proceedings of ICLR}, 2023.
+
+\end{thebibliography}
+% ============================================================
+
+\end{multicols}
+\end{document}

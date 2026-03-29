@@ -73,7 +73,7 @@ Several high-level architectural choices shape the project:
 ```
 .
 ├── src/
-│   ├── MultiClasifier.ipynb     # Main notebook (full pipeline)
+│   ├── MultiClassifier.ipynb     # Main notebook (full pipeline)
 │   ├── app.py                   # Streamlit demo
 │   ├── backend/
 │   │   ├── flask_app/           # Flask REST API (RAG)
